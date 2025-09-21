@@ -2,7 +2,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("4fATibSDAGWfRBNuS9yXpA1SsZoxVKhdid6qWEttcsv5");
+declare_id!("EeLVcxJ4sG9Gj5bqsKbUG25KMsGrLSWcauKQwBUpCWRh");
 
 mod enums;
 mod instructions;
@@ -12,7 +12,7 @@ use enums::*;
 use instructions::*;
 
 #[program]
-pub mod depin_home {
+pub mod terrapulse {
     use super::*;
 
     pub fn initialize(
