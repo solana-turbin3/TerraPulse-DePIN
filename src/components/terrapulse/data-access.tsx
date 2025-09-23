@@ -1,9 +1,11 @@
 'use client'
 
 import { Terrapulse } from '@project/anchor'
-import { PublicKey, SystemProgram } from '@solana/web3.js'
+import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Program, web3 } from '@coral-xyz/anchor'
+import { ConnectedStandardSolanaWallet } from '@privy-io/react-auth/solana'
+import idl from '../../../anchor/target/idl/terrapulse.json'
 
 export async function initializeConfig(program: Program<Terrapulse>, admin: PublicKey) {
   await program.methods
@@ -49,12 +51,21 @@ export async function updateTemp(program: Program<Terrapulse>, admin: PublicKey,
   console.log(ac)
 }
 
-export async function claimRewards(program: Program<Terrapulse>, user: PublicKey) {
+export async function claimRewards(wallet: ConnectedStandardSolanaWallet) {
+  const connection = new Connection(
+    'https://devnet.helius-rpc.com/?api-key=7892da07-aa8a-43a8-a607-5df2e9937be0',
+    'confirmed',
+  )
+  const program = new Program(idl, {
+    connection,
+  })
+
+  const user = new PublicKey(wallet.address)
   const userConfig = web3.PublicKey.findProgramAddressSync([Buffer.from('user'), user.toBuffer()], program.programId)[0]
   const config = web3.PublicKey.findProgramAddressSync([Buffer.from('config')], program.programId)[0]
   const rewardsMint = web3.PublicKey.findProgramAddressSync([Buffer.from('rewards')], program.programId)[0]
 
-  await program.methods
+  const instruction = await program.methods
     .claim()
     .accountsPartial({
       user,
@@ -65,8 +76,40 @@ export async function claimRewards(program: Program<Terrapulse>, user: PublicKey
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .instruction()
 
-  const ac = await program.account.userConfig.fetch(userConfig)
-  console.log(ac)
+  const transaction = new Transaction()
+
+  // 3. Reconstruct the instruction from the data received from backend
+  const ix = new TransactionInstruction({
+    programId: new PublicKey(instruction.programId.toString()),
+    keys: instruction.keys.map((key) => ({
+      pubkey: new PublicKey(key.pubkey),
+      isSigner: key.isSigner,
+      isWritable: key.isWritable,
+    })),
+    data: Buffer.from(instruction.data),
+  })
+
+  // 4. Add the instruction to the transaction
+  transaction.add(ix)
+
+  // 5. Get a recent blockhash to include in the transaction
+  const { blockhash } = await connection.getLatestBlockhash()
+  transaction.recentBlockhash = blockhash
+  transaction.feePayer = new PublicKey(wallet.address)
+
+  const serializedTx = transaction.serialize({ requireAllSignatures: false, verifySignatures: false })
+
+  try {
+    await wallet.signAndSendTransaction({
+      chain: 'solana:devnet',
+      transaction: serializedTx,
+    })
+  } catch (error) {
+    console.log(error)
+  }
+
+  // const ac = await program.account.userConfig.fetch(userConfig)
+  // console.log(ac)
 }
