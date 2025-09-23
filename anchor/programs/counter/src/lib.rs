@@ -2,69 +2,47 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("FqzkXZdwYjurnUKetJCAvaUw5WAqbwzU6gZEwydeEfqS");
+declare_id!("EeLVcxJ4sG9Gj5bqsKbUG25KMsGrLSWcauKQwBUpCWRh");
+
+mod enums;
+mod instructions;
+mod state;
+
+use enums::*;
+use instructions::*;
 
 #[program]
-pub mod counter {
+pub mod terrapulse {
     use super::*;
 
-    pub fn close(_ctx: Context<CloseCounter>) -> Result<()> {
-        Ok(())
+    pub fn initialize(
+        ctx: Context<Initialize>,
+        reward_temp: u8,
+        reward_noise: u8,
+        reward_vibration: u8,
+        reward_heat: u8,
+    ) -> Result<()> {
+        ctx.accounts.initialize(
+            reward_temp,
+            reward_noise,
+            reward_vibration,
+            reward_heat,
+            &ctx.bumps,
+        )
+    }
+    pub fn initialize_user(ctx: Context<InitializeUser>, user_key: Pubkey) -> Result<()> {
+        ctx.accounts.initialize_user(user_key, &ctx.bumps)
     }
 
-    pub fn decrement(ctx: Context<Update>) -> Result<()> {
-        ctx.accounts.counter.count = ctx.accounts.counter.count.checked_sub(1).unwrap();
-        Ok(())
+    pub fn update_points(
+        ctx: Context<UpdatePoints>,
+        sensor_type: SensorType,
+        value: u32,
+    ) -> Result<()> {
+        ctx.accounts.update_points(sensor_type, value)
     }
 
-    pub fn increment(ctx: Context<Update>) -> Result<()> {
-        ctx.accounts.counter.count = ctx.accounts.counter.count.checked_add(1).unwrap();
-        Ok(())
+    pub fn claim(ctx: Context<Claim>) -> Result<()> {
+        ctx.accounts.claim()
     }
-
-    pub fn initialize(_ctx: Context<InitializeCounter>) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn set(ctx: Context<Update>, value: u8) -> Result<()> {
-        ctx.accounts.counter.count = value.clone();
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct InitializeCounter<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    #[account(
-  init,
-  space = 8 + Counter::INIT_SPACE,
-  payer = payer
-    )]
-    pub counter: Account<'info, Counter>,
-    pub system_program: Program<'info, System>,
-}
-#[derive(Accounts)]
-pub struct CloseCounter<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    #[account(
-  mut,
-  close = payer, // close account and return lamports to payer
-    )]
-    pub counter: Account<'info, Counter>,
-}
-
-#[derive(Accounts)]
-pub struct Update<'info> {
-    #[account(mut)]
-    pub counter: Account<'info, Counter>,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct Counter {
-    count: u8,
 }
