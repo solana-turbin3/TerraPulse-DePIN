@@ -5,7 +5,7 @@ import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstructi
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Program, web3 } from '@coral-xyz/anchor'
 import { ConnectedStandardSolanaWallet } from '@privy-io/react-auth/solana'
-import idl from '../../../anchor/target/idl/terrapulse.json'
+import idl from '@/idl/terrapulse.json'
 
 export async function initializeConfig(program: Program<Terrapulse>, admin: PublicKey) {
   await program.methods
