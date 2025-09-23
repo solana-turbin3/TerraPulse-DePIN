@@ -6,6 +6,7 @@ import {
   ConnectionProvider,
   useConnection,
   useWallet,
+  WalletContextState,
   WalletProvider,
 } from '@solana/wallet-adapter-react'
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
@@ -35,9 +36,8 @@ export function SolanaProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useAnchorProvider() {
+export function useAnchorProvider(wallet: AnchorWallet) {
   const { connection } = useConnection()
-  const wallet = useWallet()
 
-  return new AnchorProvider(connection, wallet as AnchorWallet, { commitment: 'confirmed' })
+  return new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
 }
