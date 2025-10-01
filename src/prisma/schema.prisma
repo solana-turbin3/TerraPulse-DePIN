@@ -1,0 +1,233 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum SensorType {
+  TEMPERATURE
+  HUMIDITY
+  NOISE
+  VIBRATION
+  HEAT
+  RAIN
+  CO2
+  OTHER
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+  DECOMMISSIONED
+  PENDING
+}
+
+enum RewardClaimStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum OnChainTxStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REVERTED
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  name           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  wallets        Wallet[]       // for user have multiple wallets
+  devices        Device[]       // devices owned or registered by the user
+  rewardLedger   PointsLedger[]
+  rewardClaims   RewardClaim[]
+  meta           Json?
+}
+
+model Wallet {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  publicKey   String   @unique
+  provider    String   // e.g. "Privy", "Solana"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  meta        Json?
+
+  Device Device[]
+}
+
+model Device {
+  id                String        @id @default(uuid())
+  name              String?
+  deviceId          String        @unique // e.g. serial number
+  owner             User?         @relation(fields: [ownerId], references: [id])
+  ownerId           String?
+  wallet            Wallet?       @relation(fields: [walletId], references: [id])
+  walletId          String?
+  publicKey         String?       @unique
+  status            DeviceStatus  @default(PENDING)
+  model             String?
+  firmwareVersion   String?
+  lastSeenAt        DateTime?
+  location          Location?     @relation(fields: [locationId], references: [id])
+  locationId        String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  tags              String[]      @default([])
+  meta              Json?
+
+  sensors           Sensor[]
+  sensorReadings    SensorReading[]
+  PointsLedger PointsLedger[]
+  
+  @@index([ownerId])
+  @@index([status])
+  @@index([lastSeenAt])
+}
+
+model Sensor {
+  id          String      @id @default(uuid())
+  device      Device      @relation(fields: [deviceId], references: [id])
+  deviceId    String
+  type        SensorType
+  label       String?
+  unit        String?
+  sampleRate  Int?        // samples per minute or hour
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  meta        Json?
+
+  @@index([deviceId, type])
+}
+
+model SensorReading {
+  id               String      @id @default(uuid())
+  device           Device      @relation(fields: [deviceId], references: [id])
+  deviceId         String
+  sensorType       SensorType
+  sensorId         String?     
+  recordedAt       DateTime    // when sensor captured value
+  receivedAt       DateTime    @default(now()) // when backend received it
+  rawPayload       Json
+  value            Float?      // normalized numeric value e.g. celsius for temperature
+  valueUnit        String?
+  qualityScore     Float?      // 0.0 - 1.0
+  validated        Boolean     @default(false)
+  ipfsCid          String?     // pointer to tapedrive/IPFS raw data 
+  onchainProof     Json?       // any proof/tx reference pushed onchain
+  processedAt      DateTime?
+  createdAt        DateTime    @default(now())
+  meta             Json?
+
+  pointsLedger     PointsLedger[]
+
+  @@index([deviceId, sensorType, recordedAt])
+  @@index([recordedAt])
+  @@index([validated])
+}
+
+
+model Location {
+  id          String   @id @default(uuid())
+  name        String?
+  description String?
+  latitude    Float?
+  longitude   Float?
+  country     String?
+  region      String?
+  devices     Device[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  meta        Json?
+
+  @@index([latitude, longitude])
+  @@index([country, region])
+}
+
+model RewardIndex {
+  id                String   @id @default(uuid())
+  name              String
+  basePoints        Float    // base points per valid submission
+  multiplierJson    Json?    // { "uptime":1.2, "dataQuality":1.5, "underserved":2.0 }
+  sensorBoosts      Json?    // { "VIBRATION": 3, "HEAT": 2 }
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  description       String?
+  meta              Json?
+}
+
+
+model RewardClaim {
+  id             String            @id @default(uuid())
+  user           User              @relation(fields: [userId], references: [id])
+  userId         String
+  pointsSpent    Float
+  tokensIssued   Float?
+  status         RewardClaimStatus @default(PENDING)
+  requestedAt    DateTime          @default(now())
+  processedAt    DateTime?
+  onChainTx      OnChainTx?        @relation(fields: [onChainTxId], references: [id])
+  onChainTxId    String?
+  note           String?
+  meta           Json?
+  createdAt      DateTime          @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+
+model OnChainTx {
+  id              String            @id @default(uuid())
+  txSignature     String            @unique
+  network         String            // "mainnet", "devnet"
+  status          OnChainTxStatus   @default(PENDING)
+  submittedAt     DateTime          @default(now())
+  confirmedAt     DateTime?
+  payload         Json?            // what data was sent on-chain
+  meta            Json?
+
+  rewardClaim    RewardClaim[]
+
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model PointsLedger {
+  id            String   @id @default(uuid())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  device        Device?  @relation(fields: [deviceId], references: [id])
+  deviceId      String?
+  reading       SensorReading? @relation(fields: [readingId], references: [id])
+  readingId     String?
+  points        Float
+  reason        String   // "BASE_SUBMISSION", "UPTIME_BONUS", "CLAIM_REVERSAL"
+  rewardIndexId String?
+  createdAt     DateTime @default(now())
+  meta          Json?
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([createdAt])
+}
