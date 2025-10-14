@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLogin, usePrivy } from '@privy-io/react-auth'
 
 import { Button } from '@/components/ui/button'
@@ -10,15 +10,18 @@ import { useRouter } from 'next/navigation'
 const HomePage = () => {
   const { ready, authenticated, user, logout } = usePrivy()
   const { login } = useLogin()
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   async function registerUser() {
+    setIsLoading(true)
     const walletAddress = user?.wallet?.address
     const privyId = user?.wallet?.id
     //@ts-ignore
     const email = user?.linkedAccounts[0].email
 
     await fetch('/api/users', { method: 'POST', body: JSON.stringify({ privyId, walletAddress, email }) })
+    setIsLoading(false)
     router.replace('/home')
   }
 
@@ -27,6 +30,18 @@ const HomePage = () => {
       registerUser()
     }
   }, [user])
+
+  // Show a loading overlay while registering the user or performing async actions
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-8 flex flex-col items-center gap-4 shadow-lg">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500"></div>
+          <div className="text-lg font-medium text-gray-800 dark:text-gray-100">Setting up your account...</div>
+        </div>
+      </div>
+    )
+  }
 
   if (!ready) {
     return (
