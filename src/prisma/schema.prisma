@@ -223,6 +223,7 @@ model PointsLedger {
   reading       SensorReading? @relation(fields: [readingId], references: [id])
   readingId     String?
   points        Float
+  synced        Boolean  @default(false)
   reason        String   // "BASE_SUBMISSION", "UPTIME_BONUS", "CLAIM_REVERSAL"
   rewardIndexId String?
   createdAt     DateTime @default(now())

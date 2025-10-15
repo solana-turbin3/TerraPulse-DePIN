@@ -1,20 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { Connection, Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { getTerraPulseProgram, Terrapulse } from '@project/anchor'
+import { AnchorProvider, Program, web3 } from '@coral-xyz/anchor'
+import NodeWallet from '@coral-xyz/anchor/dist/cjs/nodewallet'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const privyId = searchParams.get('privyId');
-    const walletAddress = searchParams.get('walletAddress');
+    const { searchParams } = new URL(request.url)
+    const privyId = searchParams.get('privyId')
+    const walletAddress = searchParams.get('walletAddress')
 
     if (!privyId && !walletAddress) {
-      return NextResponse.json(
-        { error: 'Either privyId or walletAddress is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Either privyId or walletAddress is required' }, { status: 400 })
     }
 
-    let user;
+    let user
 
     if (privyId) {
       user = await prisma.user.findUnique({
@@ -25,12 +27,12 @@ export async function GET(request: NextRequest) {
             include: {
               sensors: true,
               location: true,
-            }
+            },
           },
           rewardLedger: true,
           rewardClaims: true,
         },
-      });
+      })
     } else if (walletAddress) {
       const wallet = await prisma.wallet.findUnique({
         where: { publicKey: walletAddress },
@@ -42,50 +44,41 @@ export async function GET(request: NextRequest) {
                 include: {
                   sensors: true,
                   location: true,
-                }
+                },
               },
               rewardLedger: true,
               rewardClaims: true,
-            }
-          }
-        }
-      });
-      user = wallet?.user;
+            },
+          },
+        },
+      })
+      user = wallet?.user
     }
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json(user, { status: 200 });
+    return NextResponse.json(user, { status: 200 })
   } catch (error) {
-    console.error('Error fetching user:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error fetching user:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { privyId, walletAddress, email, name, privyUserData } = body;
+    const body = await request.json()
+    const { privyId, walletAddress, email, name, privyUserData } = body
 
     if (!privyId) {
-      return NextResponse.json(
-        { error: 'privyId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'privyId is required' }, { status: 400 })
     }
 
     let existingUser = await prisma.user.findUnique({
       where: { privyId },
-      include: { wallets: true }
-    });
+      include: { wallets: true },
+    })
 
     if (existingUser) {
       const updatedUser = await prisma.user.update({
@@ -101,15 +94,13 @@ export async function POST(request: NextRequest) {
             include: {
               sensors: true,
               location: true,
-            }
+            },
           },
-        }
-      });
+        },
+      })
 
       if (walletAddress) {
-        const existingWallet = existingUser.wallets.find(
-          wallet => wallet.publicKey === walletAddress
-        );
+        const existingWallet = existingUser.wallets.find((wallet) => wallet.publicKey === walletAddress)
 
         if (!existingWallet) {
           await prisma.wallet.create({
@@ -117,13 +108,13 @@ export async function POST(request: NextRequest) {
               userId: existingUser.id,
               publicKey: walletAddress,
               provider: 'Privy',
-              meta: { linkedAt: new Date() }
-            }
-          });
+              meta: { linkedAt: new Date() },
+            },
+          })
         }
       }
 
-      return NextResponse.json(updatedUser, { status: 200 });
+      return NextResponse.json(updatedUser, { status: 200 })
     }
 
     const newUser = await prisma.user.create({
@@ -132,13 +123,15 @@ export async function POST(request: NextRequest) {
         email: email || '',
         name: name || null,
         meta: privyUserData || {},
-        wallets: walletAddress ? {
-          create: {
-            publicKey: walletAddress,
-            provider: 'Privy',
-            meta: { linkedAt: new Date() }
-          }
-        } : undefined
+        wallets: walletAddress
+          ? {
+              create: {
+                publicKey: walletAddress,
+                provider: 'Privy',
+                meta: { linkedAt: new Date() },
+              },
+            }
+          : undefined,
       },
       include: {
         wallets: true,
@@ -146,17 +139,49 @@ export async function POST(request: NextRequest) {
           include: {
             sensors: true,
             location: true,
-          }
+          },
         },
-      }
-    });
+      },
+    })
 
-    return NextResponse.json(newUser, { status: 201 });
+    let secretKey = bs58.decode(process.env.SECRET_KEY!)
+    const admin = Keypair.fromSecretKey(secretKey)
+
+    const connection = new Connection(
+      'https://devnet.helius-rpc.com/?api-key=7892da07-aa8a-43a8-a607-5df2e9937be0',
+      'confirmed',
+    )
+    const wallet = new NodeWallet(admin)
+    const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
+    const program = getTerraPulseProgram(provider)
+
+    await initializeUserAccount(program, admin, new PublicKey(newUser.wallets[0].publicKey))
+
+    return NextResponse.json(newUser, { status: 201 })
   } catch (error) {
-    console.error('Error creating/updating user:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error creating/updating user:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
- }
+}
+
+async function initializeUserAccount(program: Program<Terrapulse>, admin: Keypair, user: PublicKey) {
+  try {
+    await program.methods
+      .initializeUser(user)
+      .accountsPartial({
+        admin: admin.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc()
+
+    const userConfig = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user'), user.toBuffer()],
+      program.programId,
+    )[0]
+    const ac = await program.account.userConfig.fetch(userConfig)
+    console.log(ac)
+  } catch (error) {
+    console.log(error)
+  }
+}

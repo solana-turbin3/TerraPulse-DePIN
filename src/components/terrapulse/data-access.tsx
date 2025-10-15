@@ -22,6 +22,32 @@ export async function initializeConfig(program: Program<Terrapulse>, admin: Publ
   console.log(ac)
 }
 
+export async function getMainConfig() {
+  const connection = new Connection(
+    'https://devnet.helius-rpc.com/?api-key=7892da07-aa8a-43a8-a607-5df2e9937be0',
+    'confirmed',
+  )
+  const program = new Program<Terrapulse>(idl, {
+    connection,
+  })
+  const config = web3.PublicKey.findProgramAddressSync([Buffer.from('config')], program.programId)[0]
+  const ac = await program.account.config.fetch(config)
+  return ac
+}
+
+export async function getUserRewardPoints(user: PublicKey) {
+  const connection = new Connection(
+    'https://devnet.helius-rpc.com/?api-key=7892da07-aa8a-43a8-a607-5df2e9937be0',
+    'confirmed',
+  )
+  const program = new Program<Terrapulse>(idl, {
+    connection,
+  })
+  const userConfig = web3.PublicKey.findProgramAddressSync([Buffer.from('user'), user.toBuffer()], program.programId)[0]
+  const ac = await program.account.userConfig.fetch(userConfig)
+  return ac
+}
+
 export async function initializeUserAccount(program: Program<Terrapulse>, admin: PublicKey, user: PublicKey) {
   await program.methods
     .initializeUser(user)
