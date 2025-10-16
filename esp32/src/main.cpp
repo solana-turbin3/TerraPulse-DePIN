@@ -6,6 +6,7 @@
 
 // Your Solana wallet (Base58 format)
 const String PUBLIC_KEY_BASE58 = "AHYic562KhgtAEkb1rSesqS87dFYRcfXb4WwWus3Zc9C";
+const String privyID = "your_privy_id";
 
 // -------------------- DHT SETUP --------------------
 #define DHTPIN 26 // GPIO for DHT11
@@ -13,7 +14,7 @@ const String PUBLIC_KEY_BASE58 = "AHYic562KhgtAEkb1rSesqS87dFYRcfXb4WwWus3Zc9C";
 DHT dht(DHTPIN, DHTTYPE);
 
 // -------------------- SERVER --------------------
-const char *serverUrl = "http://<YOUR_SERVER_IP>:3000/api/data"; // change this!
+const char *serverUrl = "http://<YOUR_SERVER_IP>:3000/api/sensor-data"; // change this!
 
 // -------------------- FUNCTIONS --------------------
 void connectWiFiManager();
@@ -225,7 +226,11 @@ void readAndSendTemperature()
 
   // Send temperature to backend
   // Build JSON payload
-  String jsonPayload = "{\"temp\":" + String(t) + ",\"humidity\":" + String(h) + "}";
+  String jsonPayload = "{";
+  jsonPayload += "\"privyId\":" + privyID + ",";
+  jsonPayload += "\"humidity\":" + String(h) + ",";
+  jsonPayload += "\"temperature\":" + String(t);
+  jsonPayload += "}";
 
   HTTPClient http;
   http.begin(serverUrl);
