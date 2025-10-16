@@ -10,7 +10,7 @@
 
 - **Pitch Deck**: [Slides](https://www.canva.com/design/DAG18ZEog-s/RFQ8r3C1jb5x7OyA_eXG-A/edit?utm_content=DAG18ZEog-s&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 - **Devnet Address**: [EeLVcxJ4sG9Gj5bqsKbUG25KMsGrLSWcauKQwBUpCWRh](https://explorer.solana.com/address/EeLVcxJ4sG9Gj5bqsKbUG25KMsGrLSWcauKQwBUpCWRh?cluster=devnet)
-- **Program Repository**: [Program](https://github.com/solana-turbin3/TerraPulse-DePIN/tree/main/anchor)
+- **Solana Program Repository**: [Program](https://github.com/solana-turbin3/TerraPulse-DePIN/tree/main/anchor)
 - **Embedded Repository(Esp32)**: [Embedded](https://github.com/solana-turbin3/TerraPulse-DePIN/tree/main/esp32)
 - **Frontend Repository**: [Frontend](https://github.com/solana-turbin3/TerraPulse-DePIN/tree/main/src)
 - **Backend Repository**: [Backend](https://github.com/solana-turbin3/TerraPulse-DePIN/tree/main/src/app/api)
